@@ -1,31 +1,44 @@
-const throwError = require('./error');
+const throwError = require("./error");
 
 const getDataType = (data, column) => {
-  if (typeof data === 'number') {
-    return 'numeric';
+  if (data === undefined || data === null) {
+    console.warn(
+      `Could not determine a data type for ${JSON.stringify(
+        column
+      )} because the first row had no data, using text`
+    );
+    return "text";
   }
-  if (typeof data === 'string' || data === null) {
-    return 'text';
+  if (typeof data === "number") {
+    return "numeric";
   }
-  if (typeof data === 'boolean') {
-    return 'boolean';
+  if (typeof data === "string" || data === null) {
+    return "text";
   }
-  if (data.constructor.name === 'Date') {
-    return 'timestamptz';
+  if (typeof data === "boolean") {
+    return "boolean";
   }
-  if (data.constructor.name === 'Object' || data.constructor.name === 'Array') {
-    return 'jsonb';
+  if (data.constructor.name === "Date") {
+    return "timestamptz";
   }
-  throwError(`message: invalid data type given for column ${column}: ${typeof data}`);
+  if (data.constructor.name === "Object" || data.constructor.name === "Array") {
+    return "jsonb";
+  }
+  console.warn(
+    `message: invalid data type given for column ${column}: ${typeof data}, using text`
+  );
+  return "text";
 };
 
 const isForeign = (name, db) => {
   const l = name.length;
   if (l > 3) {
-    if (name.substring(l - 3, l) === '_id' &&
-        Object.keys(db).find(tableName => {
-          return tableName === name.substring(0, l - 3);
-        })) {
+    if (
+      name.substring(l - 3, l) === "_id" &&
+      Object.keys(db).find((tableName) => {
+        return tableName === name.substring(0, l - 3);
+      })
+    ) {
       return true;
     }
   }
@@ -34,14 +47,14 @@ const isForeign = (name, db) => {
 
 const getColumnData = (dataArray, db) => {
   let refColumns = {};
-  dataArray.forEach(row => {
+  dataArray.forEach((row) => {
     refColumns = {
       ...refColumns,
       ...row,
     };
   });
   const columnData = [];
-  Object.keys(refColumns).forEach(column => {
+  Object.keys(refColumns).forEach((column) => {
     const columnMetadata = {};
     if (!column) {
       throwError("message: column names can't be empty strings");
@@ -55,26 +68,28 @@ const getColumnData = (dataArray, db) => {
   return columnData;
 };
 
-const hasPrimaryKey = dataObj => {
+const hasPrimaryKey = (dataObj) => {
   let has = true;
-  dataObj.forEach(obj => {
-    if (!Object.keys(obj).find(name => name === 'id')) {
+  dataObj.forEach((obj) => {
+    if (!Object.keys(obj).find((name) => name === "id")) {
       has = false;
     }
   });
   return has;
 };
 
-const sanitizeData = db => {
+const sanitizeData = (db) => {
   const newDb = {};
   for (var tableName in db) {
-    const newTableName = tableName.replace(/[^a-zA-Z0-9]/g, '_').replace(' ', '_');
+    const newTableName = tableName
+      .replace(/[^a-zA-Z0-9]/g, "_")
+      .replace(" ", "_");
     newDb[newTableName] = [];
     for (var i = db[tableName].length - 1; i >= 0; i--) {
       const data = db[tableName][i];
       const newData = {};
       for (var key in data) {
-        const newKey = key.replace(/[^a-zA-Z0-9]/g, '_').replace(' ', '_');
+        const newKey = key.replace(/[^a-zA-Z0-9]/g, "_").replace(" ", "_");
         newData[newKey] = data[key];
       }
       newDb[tableName].push(newData);
@@ -83,19 +98,23 @@ const sanitizeData = db => {
   return newDb;
 };
 
-const generate = db => {
+const generate = (db) => {
   const metaData = [];
-  Object.keys(db).forEach(rootField => {
+  Object.keys(db).forEach((rootField) => {
     const tableMetadata = {};
     if (!hasPrimaryKey(db[rootField], rootField)) {
-      throwError(`message: a unique column with name "id" must present in table "${rootField}"`);
+      throwError(
+        `message: a unique column with name "id" must present in table "${rootField}"`
+      );
     }
     tableMetadata.name = rootField;
     tableMetadata.columns = getColumnData(db[rootField], db);
     tableMetadata.dependencies = [];
-    tableMetadata.columns.forEach(column => {
+    tableMetadata.columns.forEach((column) => {
       if (column.isForeign) {
-        tableMetadata.dependencies.push(column.name.substring(0, column.name.length - 3));
+        tableMetadata.dependencies.push(
+          column.name.substring(0, column.name.length - 3)
+        );
       }
     });
     metaData.push(tableMetadata);
