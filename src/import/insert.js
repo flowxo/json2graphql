@@ -54,15 +54,23 @@ const transformData = (data, tables) => {
   return newData;
 };
 
-const insertData = async (insertOrder, sampleData, tables, url, headers) => {
+const insertData = async (
+  insertOrder,
+  sampleData,
+  tables,
+  url,
+  headers,
+  getSchema
+) => {
   const transformedData = transformData(sampleData, tables);
   let mutationString = "";
   let objectString = "";
   const variables = {};
   insertOrder.forEach((tableName) => {
-    mutationString += `insert_${tableName} ( objects: $objects_${tableName} ) { affected_rows } \n`;
-    objectString += `$objects_${tableName}: [${tableName}_insert_input!]!,\n`;
-    variables[`objects_${tableName}`] = transformedData[tableName];
+    namespacedTableName = `${getSchema(tableName)}_${tableName}`;
+    mutationString += `insert_${namespacedTableName} ( objects: $objects_${namespacedTableName} ) { affected_rows } \n`;
+    objectString += `$objects_${namespacedTableName}: [${namespacedTableName}_insert_input!]!,\n`;
+    variables[`objects_${namespacedTableName}`] = transformedData[tableName];
   });
   const mutation = `mutation ( ${objectString} ) { ${mutationString} }`;
   cli.action.start("Inserting data");
@@ -76,9 +84,11 @@ const insertData = async (insertOrder, sampleData, tables, url, headers) => {
     if (response.data !== null && response.data !== "undefined") {
       cli.action.stop("Done!");
     } else {
+      console.log(mutation);
       throw new Error(response);
     }
   } catch (e) {
+    console.log(mutation);
     throwError(JSON.stringify(e, null, 2));
   }
 };

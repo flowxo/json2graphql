@@ -1,13 +1,22 @@
 const throwError = require("./error");
 
 const getDataType = (data, column) => {
+  const typeByName = {
+    created_at: "timestamptz",
+    updated_at: "timestamptz",
+    deleted_at: "timestamptz",
+  };
+  function getTypeByName(column) {
+    return typeByName[column] ?? "text";
+  }
   if (data === undefined || data === null) {
+    const type = getTypeByName(column);
     console.warn(
       `Could not determine a data type for ${JSON.stringify(
         column
-      )} because the first row had no data, using text`
+      )} because the first row had no data, using ${type}`
     );
-    return "text";
+    return type;
   }
   if (typeof data === "number") {
     return "numeric";
